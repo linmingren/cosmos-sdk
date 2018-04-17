@@ -36,7 +36,6 @@ func (v Validator) ABCIValidatorZero(cdc *wire.Codec) abci.Validator {
 }
 
 type ValidatorSetKeeper interface {
-	Hash(Context) []byte
 	GetValidators(Context) []*Validator
 	Size(Context) int
 	IsValidator(Context, Address) bool
