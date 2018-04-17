@@ -2,8 +2,6 @@ package stake
 
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/wire"
-	abci "github.com/tendermint/abci/types"
 	crypto "github.com/tendermint/go-crypto"
 )
 
@@ -104,8 +102,8 @@ func (c Candidate) delegatorShareExRate() sdk.Rat {
 
 // Validator returns a copy of the Candidate as a Validator.
 // Should only be called when the Candidate qualifies as a validator.
-func (c Candidate) validator() Validator {
-	return Validator{
+func (c Candidate) validator() sdk.Validator {
+	return sdk.Validator{
 		Address: c.Address,
 		PubKey:  c.PubKey,
 		Power:   c.Assets,
@@ -116,38 +114,6 @@ func (c Candidate) validator() Validator {
 //XXX enforce limit to number of description characters
 
 //______________________________________________________________________
-
-// Validator is one of the top Candidates
-type Validator struct {
-	Address sdk.Address   `json:"address"`
-	PubKey  crypto.PubKey `json:"pub_key"`
-	Power   sdk.Rat       `json:"voting_power"`
-}
-
-// abci validator from stake validator type
-func (v Validator) abciValidator(cdc *wire.Codec) abci.Validator {
-	pkBytes, err := cdc.MarshalBinary(v.PubKey)
-	if err != nil {
-		panic(err)
-	}
-	return abci.Validator{
-		PubKey: pkBytes,
-		Power:  v.Power.Evaluate(),
-	}
-}
-
-// abci validator from stake validator type
-// with zero power used for validator updates
-func (v Validator) abciValidatorZero(cdc *wire.Codec) abci.Validator {
-	pkBytes, err := cdc.MarshalBinary(v.PubKey)
-	if err != nil {
-		panic(err)
-	}
-	return abci.Validator{
-		PubKey: pkBytes,
-		Power:  0,
-	}
-}
 
 //_________________________________________________________________________
 

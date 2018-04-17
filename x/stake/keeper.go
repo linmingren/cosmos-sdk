@@ -124,7 +124,7 @@ func (k Keeper) setCandidate(ctx sdk.Context, candidate Candidate) {
 		setAcc = true
 	}
 	if setAcc {
-		bz, err = k.cdc.MarshalBinary(validator.abciValidator(k.cdc))
+		bz, err = k.cdc.MarshalBinary(validator.ABCIValidator(k.cdc))
 		if err != nil {
 			panic(err)
 		}
@@ -151,7 +151,7 @@ func (k Keeper) removeCandidate(ctx sdk.Context, address sdk.Address) {
 	if store.Get(GetRecentValidatorKey(address)) == nil {
 		return
 	}
-	bz, err := k.cdc.MarshalBinary(candidate.validator().abciValidatorZero(k.cdc))
+	bz, err := k.cdc.MarshalBinary(candidate.validator().ABCIValidatorZero(k.cdc))
 	if err != nil {
 		panic(err)
 	}
@@ -167,7 +167,7 @@ func (k Keeper) removeCandidate(ctx sdk.Context, address sdk.Address) {
 // records are updated in store with the RecentValidatorsKey. This store is
 // used to determine if a candidate is a validator without needing to iterate
 // over the subspace as we do in GetValidators
-func (k Keeper) GetValidators(ctx sdk.Context) (validators []Validator) {
+func (k Keeper) GetValidators(ctx sdk.Context) (validators []sdk.Validator) {
 	store := ctx.KVStore(k.storeKey)
 
 	// clear the recent validators store, add to the ToKickOut Temp store
@@ -184,7 +184,7 @@ func (k Keeper) GetValidators(ctx sdk.Context) (validators []Validator) {
 	// add the actual validator power sorted store
 	maxValidators := k.GetParams(ctx).MaxValidators
 	iterator = store.ReverseIterator(subspace(ValidatorsKey)) // largest to smallest
-	validators = make([]Validator, maxValidators)
+	validators = make([]sdk.Validator, maxValidators)
 	i := 0
 	for ; ; i++ {
 		if !iterator.Valid() || i > int(maxValidators-1) {
@@ -192,7 +192,7 @@ func (k Keeper) GetValidators(ctx sdk.Context) (validators []Validator) {
 			break
 		}
 		bz := iterator.Value()
-		var validator Validator
+		var validator sdk.Validator
 		err := k.cdc.UnmarshalBinary(bz, &validator)
 		if err != nil {
 			panic(err)
@@ -216,12 +216,12 @@ func (k Keeper) GetValidators(ctx sdk.Context) (validators []Validator) {
 
 		// get the zero abci validator from the ToKickOut iterator value
 		bz := iterator.Value()
-		var validator Validator
+		var validator sdk.Validator
 		err := k.cdc.UnmarshalBinary(bz, &validator)
 		if err != nil {
 			panic(err)
 		}
-		bz, err = k.cdc.MarshalBinary(validator.abciValidatorZero(k.cdc))
+		bz, err = k.cdc.MarshalBinary(validator.ABCIValidatorZero(k.cdc))
 		if err != nil {
 			panic(err)
 		}
@@ -247,7 +247,7 @@ func (k Keeper) isNewValidator(ctx sdk.Context, store sdk.KVStore, address sdk.A
 			break
 		}
 		bz := iterator.Value()
-		var val Validator
+		var val sdk.Validator
 		err := k.cdc.UnmarshalBinary(bz, &val)
 		if err != nil {
 			panic(err)
@@ -418,4 +418,48 @@ func (k Keeper) setPool(ctx sdk.Context, p Pool) {
 	}
 	store.Set(PoolKey, b)
 	k.gs = Pool{} // clear the cache
+}
+
+//__________________________________________________________________________
+
+// Implements sdk.ValidatorSetKeeper
+
+func (k Keeper) Hash() []byte {
+	return nil
+}
+
+func (k Keeper) Size(ctx sdk.Context) int {
+	return len(k.GetValidators(ctx))
+}
+
+func (k Keeper) IsValidator(ctx sdk.Context, addr sdk.Address) bool {
+	for _, v := range k.GetValidators(ctx) {
+		if bytes.Equal(v.Address, addr) {
+			return true
+		}
+	}
+	return false
+}
+
+func (k Keeper) GetByAddress(ctx sdk.Context, addr sdk.Address) (int, *sdk.Validator) {
+	for i, v := range k.GetValidators(ctx) {
+		if bytes.Equal(v.Address, addr) {
+			return i, &v
+		}
+	}
+	return -1, nil
+}
+
+func (k Keeper) GetByIndex(ctx sdk.Context, index int) *sdk.Validator {
+	valset := k.GetValidators(ctx)
+
+	if index < 0 || index >= len(valset) {
+		return nil
+	}
+
+	return &valset[index]
+}
+
+func (k Keeper) TotalPower() sdk.Rat {
+	return sdk.ZeroRat
 }
